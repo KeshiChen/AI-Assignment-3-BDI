@@ -139,55 +139,52 @@ gtp(goal(X1, Y1, S1), [goal(X2, Y2, S2)|_], [beliefs(at(X, Y),stock(_))|_]) :-
 % If the intentions are empty then stay still.
 get_action(beliefs(at(X, Y),stock(_)), intents([],[]), intents([],[]), move(X, Y)).
 
-get_action(beliefs(at(X, Y),stock(T)), intents([goal(_,_,S),_],[]), intents([],[]), move(X, Y)):-
-    S>T.
-
+% If the Action is good, use it and update the Intentions list ...
 %
 % get_action(beliefs(at(X1,Y1),_), intents([],[[Goal,[]]|Int_pick]), intents([],[[Goal, []]|Int_pick]), Action) :-
 %    Action = move(X1,Y1),
 %    write('TEST7: ACTION:'),writeln(Action).
 
-% If the Action is applicable and truffles amount in hand is not less
-% than the requirement of the resaturant, use it and update the
-% Intentions list.
+get_action(_, intents([[goal(X,Y,S),Plan]|Int_sell],Int_pick), intents([[Goal, NextActions]|Int_sell],Int_pick), Action) :-
+    decompose_intention([goal(X,Y,S),Plan], Goal, [Action|NextActions]),
+    applicable(Action),
+    write('TEST1: ACTION:'),writeln(Action).
 
-get_action(beliefs(at(_,_),stock(T)), intents([Head_sell|Int_sell],Int_pick), intents([[Goal, NextActions]|Int_sell],Int_pick), Action) :-
-    get_value(Head_sell,S),
-    S \= -1,
-    S =< T,
-    decompose_intention(Head_sell, Goal, [Action|NextActions]),
-    applicable(Action).
+% get_action(Beliefs, intents([[goal(X,Y,S),Plan]|Int_sell],Int_pick), intents([[goal(X,Y,S), Plan]|Int_sell],Int_pick), Action) :-
+%    new_plan_s(goal(X,Y,S), Beliefs, NewPlan),
+%    next_action(NewPlan, Plan, Action ),
+%    write('TEST2: ACTION:'),writeln(Action).
 
-get_action(beliefs(At,stock(T)), intents([[goal(X, Y, S), []]|Int_sell],Int_pick), intents([[goal(X,Y,S), Plan]|Int_sell],Int_pick), Action) :-
-    S =< T,
-    new_plan_s(goal(X,Y,S), beliefs(At,stock(T)), NewPlan),
-    next_action(NewPlan, Plan, Action ).
-
-get_action(beliefs(At,stock(T)), intents([Head_sell|Int_sell],Int_pick), intents([[Goal, NextActions]|Int_sell],Int_pick), Action) :-
-    get_value(Head_sell,S),
-    S \= -1,
-    S =< T,
-    decompose_intention(Head_sell, Goal, [FailAction|_]),
+get_action(beliefs(At,stock(T)), intents([[goal(X,Y,S),Plan]|Int_sell],Int_pick), intents([[Goal, NextActions]|Int_sell],Int_pick), Action) :-
+    decompose_intention([goal(X,Y,S),Plan], Goal, [FailAction|_]),
     not(applicable(FailAction)),
     new_plan_s(Goal, beliefs(At,stock(T)), NewPlan),
-    next_action(NewPlan, NextActions, Action).
+    next_action(NewPlan, NextActions, Action),
+    write('TEST3: ACTION:'),writeln(Action).
 
-get_action(_, intents(Int_sell,[Head_pick|Int_pick]), intents(Int_sell,[[Goal, NextActions]|Int_pick]), Action) :-
-    decompose_intention(Head_pick, Goal, [Action|NextActions]),
-    applicable(Action).
+get_action(_, intents(Int_sell,[[goal(X,Y,S),Plan]|Int_pick]), intents(Int_sell,[[Goal, NextActions]|Int_pick]), Action) :-
+    decompose_intention([goal(X,Y,S),Plan], Goal, [Action|NextActions]),
+    applicable(Action),
+    write('TEST4: ACTION:'),writeln(Action).
 
-get_action(Beliefs, intents(Int_sell,[[goal(X,Y,S),[]]|PTail]), intents(Int_sell,[[goal(X,Y,S), Plan]|PTail]), Action) :-
-    new_plan_p(goal(X,Y,S), Beliefs, NewPlan),
-    next_action(NewPlan,Plan, Action ).
+% get_action(Beliefs, intents(Int_sell,[[goal(X,Y,S),[]]|PTail]), intents(Int_sell,[[goal(X,Y,S), Plan]|PTail]), Action) :-
+%     new_plan_p(goal(X,Y,S), Beliefs, NewPlan), next_action(NewPlan,
+% Plan, Action ), write('TEST5: ACTION:'),writeln(Action).
 
-get_action(Beliefs, intents([],[Head_pick|Int_pick]), intents([],[[Goal, NextActions]|Int_pick]), Action) :-
-    decompose_intention(Head_pick, Goal, [FailAction|_]),
+get_action(Beliefs, intents([],[[goal(X,Y,S),Plan]|Int_pick]), intents([],[[Goal, NextActions]|Int_pick]), Action) :-
+    decompose_intention([goal(X,Y,S),Plan], Goal, [FailAction|_]),
     not(applicable(FailAction)),
     new_plan_p(Goal, Beliefs, NewPlan),
-    next_action(NewPlan, NextActions, Action).
+    next_action(NewPlan, NextActions, Action),
+    write('TEST6: ACTION:'),writeln(Action).
 
 
 % ... otherwise Action is not applicable so create a new Plan for the Goal.
+%get_action(Beliefs, [Intent|Tail], [[Goal, Plan]|Tail], Action) :-
+%    decompose_intention(Intent, Goal, [BadAction|_]),
+%    not(applicable(BadAction)),
+%    new_plan(Goal, Beliefs, NewPlan),
+%    next_action(NewPlan, Plan, Action).
 
 % next_action(+PrevPlan, -Plan, -Action).
 %   Pops out the first Action from PrevPlan and returns the Plan
@@ -202,8 +199,6 @@ decompose_intention([Goal,Plan], Goal, Plan).
 %   Generate a list of move() actions ending with a pick() or a
 %   sell() action based on the agent's current at().
 %   '_s' means that end with sell(), '_p' means that end with pick().
-new_plan_s(goal(X, Y, _), beliefs(at(X, Y), stock(_)), [sell(X, Y)]).
-
 new_plan_s(Goal, Beliefs, Plan) :-
     new_plan_s(Goal, Beliefs, [], Plan).
 
@@ -214,8 +209,6 @@ new_plan_s(Goal, beliefs(at(X, Y),stock(T)), PartialPlan, Plan) :-
     valid_move(X, Y, move(Xnew, Ynew)),
     h(move(Xnew, Ynew), Goal, at(X, Y)),
     new_plan_s(Goal, beliefs(at(Xnew, Ynew),stock(T)), [move(Xnew, Ynew)|PartialPlan], Plan).
-
-new_plan_p(goal(X, Y, _), beliefs(at(X, Y), stock(_)), [pick(X, Y)]).
 
 new_plan_p(Goal, Beliefs, Plan) :-
     new_plan_p(Goal, Beliefs, [], Plan).
@@ -261,10 +254,6 @@ reverse([], Reversed, Reversed).
 reverse([X|Rest], PartReversed, TotalReversed) :-
     reverse(Rest, [X|PartReversed], TotalReversed).
 
-get_value([],-1).
-get_value([goal(_,_,S)|_],S).
-
-
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % [PART 4]
 % Two predicates, update_beliefs and update_intentions that will compute the
@@ -272,9 +261,8 @@ get_value([goal(_,_,S)|_],S).
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 
 % update_beliefs(+Observation, @Beliefs, -Beliefs1).
-%   Update agent's Beliefs based on Observations. Replace the old at()
-%   with the new at(), re-calculate the amount of truffles hold by the
-%   agent after picking or selling.
+%   Update robots Beliefs based on Observations. Replace the old at()
+%   with the new at().
 
 update_beliefs(at(X, Y), beliefs(at(_,_),stock(T)), beliefs(at(X,Y),stock(T))).
 update_beliefs(picked(X, Y, S), beliefs(at(X,Y),stock(T)), beliefs(at(X,Y),stock(T1))):-
@@ -282,9 +270,16 @@ update_beliefs(picked(X, Y, S), beliefs(at(X,Y),stock(T)), beliefs(at(X,Y),stock
 update_beliefs(sold(X, Y, S), beliefs(at(X,Y),stock(T)), beliefs(at(X,Y),stock(T1))):-
     T1 is T - S.
 
+% ignore cleaned() observations.
+%update_beliefs(_, Beliefs, Beliefs).
+
+
 % update_intentions(+Observation, +Intentions, -Intentions1).
-%   Update intentions based on Observations.
+%   Update intentions based on Observations. Remove the goal once the junk has
+%   been cleaned. Assuming its still the last goal to have been reached.
 
 update_intentions(picked(X, Y, S), intents(Int_sell,[[goal(X, Y, S),_]|Intentions1]), intents(Int_sell,Intentions1)).
 update_intentions(sold(X, Y, S), intents([[goal(X, Y, S),_]|Intentions1],Int_pick), intents(Intentions1,Int_pick)).
 update_intentions(at(_, _), Intentions, Intentions).
+% Catch the rest to stop backtracking.
+%update_intentions(_, Intentions, Intentions).
